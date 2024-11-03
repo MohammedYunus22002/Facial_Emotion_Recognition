@@ -1,17 +1,136 @@
+
 import json
 import io
 import base64
-
 from typing import Optional
-from fastapi import FastAPI, WebSocket
-
-import cv2 
+from fastapi import FastAPI, WebSocket, Depends, HTTPException, status
+from pydantic import BaseModel
+from passlib.context import CryptContext
+from jose import JWTError, jwt
+from datetime import datetime, timedelta
+import motor.motor_asyncio  
+import cv2
 import numpy as np
 from fer import FER
+from dotenv import load_dotenv
+import os
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import Request
 
+# Load environment variables
+load_dotenv()
+
+# App setup
 app = FastAPI()
 detector = FER()
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
+class JWTAuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Skip authentication for the signup and login routes
+        if request.url.path in ["/signup", "/login"]:
+            response = await call_next(request)
+            return response
+
+        # Get the token from the Authorization header
+        token = request.headers.get("Authorization")
+        if token is None:
+            raise HTTPException(status_code=401, detail="Not authenticated")
+
+        # Verify the token
+        try:
+            payload = jwt.decode(token.split(" ")[1], SECRET_KEY, algorithms=[ALGORITHM])
+            request.state.user = payload  # You can store the user information in request state
+        except JWTError:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+
+        # Proceed with the request
+        response = await call_next(request)
+        return response
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.add_middleware(JWTAuthMiddleware)
+
+# MongoDB connection setup
+MONGO_URL = os.getenv("MONGO_URL")
+client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URL)
+db = client["emotion_app"]
+users_collection = db["users"]
+
+# CryptContext for password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# User and Token models
+class User(BaseModel):
+    username: str
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+# Utility functions
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+async def authenticate_user(username: str, password: str):
+    user = await users_collection.find_one({"username": username})
+    if user is None or not verify_password(password, user["password"]):
+        return False
+    return user
+
+
+# Signup endpoint
+@app.post("/signup")
+async def signup(user: User):
+    existing_user = await users_collection.find_one({"username": user.username})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username already registered")
+    hashed_password = get_password_hash(user.password)
+    user_data = {"username": user.username, "password": hashed_password}
+    await users_collection.insert_one(user_data)
+    return {"msg": "User registered successfully"}
+
+# Login endpoint
+@app.post("/login", response_model=Token)
+async def login(user: User):
+    user_data = await authenticate_user(user.username, user.password)
+    if not user_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# Emotion detection with WebSocket
 @app.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -34,3 +153,22 @@ async def websocket_endpoint(websocket: WebSocket):
         websocket.close()
     except:
         websocket.close()
+
+# Dependency to get current user
+async def get_current_user(token: str = Depends()):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    user = await users_collection.find_one({"username": username})
+    if user is None:
+        raise credentials_exception
+    return user
