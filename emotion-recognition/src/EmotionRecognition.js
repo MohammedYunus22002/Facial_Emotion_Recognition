@@ -5,6 +5,7 @@ import logo from './logo.svg';
 import * as tf from "@tensorflow/tfjs";
 import Webcam from "react-webcam";
 import { drawMesh } from "./utilities";
+import Logout from "./Logout"; 
 
 function EmotionRecognition() {
   const webcamRef = useRef(null);
@@ -165,6 +166,14 @@ function EmotionRecognition() {
                  left:300,
                  "font-size": "30px",
                }}></input>
+          <div style={{
+            position: "absolute",
+            top: "1px",
+            right: "20px",
+            zIndex: 10,
+          }}>
+            <Logout /> 
+          </div>
       </header>
     </div>
   );

@@ -30,26 +30,32 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 class JWTAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # Skip authentication for the signup and login routes
+        # Skip authentication for signup and login routes
         if request.url.path in ["/signup", "/login"]:
-            response = await call_next(request)
-            return response
+            return await call_next(request)
+
+        # Handle only HTTP requests (skip WebSockets)
+        if request.headers.get("sec-websocket-key"):
+            return await call_next(request)
 
         # Get the token from the Authorization header
         token = request.headers.get("Authorization")
         if token is None:
-            raise HTTPException(status_code=401, detail="Not authenticated")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated"
+            )
 
-        # Verify the token
         try:
             payload = jwt.decode(token.split(" ")[1], SECRET_KEY, algorithms=[ALGORITHM])
-            request.state.user = payload  # You can store the user information in request state
+            request.state.user = payload  # Store user info in request state
         except JWTError:
-            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token"
+            )
 
-        # Proceed with the request
-        response = await call_next(request)
-        return response
+        return await call_next(request)
 
 app.add_middleware(
     CORSMiddleware,
@@ -66,6 +72,8 @@ MONGO_URL = os.getenv("MONGO_URL")
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URL)
 db = client["emotion_app"]
 users_collection = db["users"]
+emotions_collection = db["emotions"]
+
 
 # CryptContext for password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -134,8 +142,11 @@ async def login(user: User):
 @app.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+    last_store_time = datetime.utcnow()  # Initialize the last store timestamp
+
     #while True:
     try:
+        # Continue with emotion detection
         payload = await websocket.receive_text()
         payload = json.loads(payload)
         imageByt64 = payload['data']['image'].split(',')[1]
@@ -145,6 +156,21 @@ async def websocket_endpoint(websocket: WebSocket):
         
         # Detect Emotion via Tensorflow model
         prediction = detector.detect_emotions(image)
+
+        current_emotion = max(prediction[0]['emotions'], key=prediction[0]['emotions'].get)
+
+        current_time = datetime.utcnow()
+        # Check if 10 seconds have passed
+        if (current_time - last_store_time).total_seconds() >= 10:
+            # Store emotion with timestamp in MongoDB
+            await emotions_collection.insert_one({
+                "timestamp": current_time,
+                "emotion": current_emotion
+            })
+            last_store_time = current_time  # Update last store time
+            print(f"Emotion stored: {current_emotion}")
+
+            
         response = {
             "predictions": prediction[0]['emotions'],
             "emotion": max(prediction[0]['emotions'], key=prediction[0]['emotions'].get)

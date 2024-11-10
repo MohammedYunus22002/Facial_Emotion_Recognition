@@ -1,7 +1,8 @@
 // src/Signup.js
 import React, { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+
 
 function Signup() {
   const navigate = useNavigate();
@@ -43,6 +44,9 @@ function Signup() {
           />
           <button type="submit" style={styles.button}>Signup</button>
         </form>
+        <p style={styles.loginText}>
+          Already have an account? <Link to="/login" style={styles.loginLink}>Log in</Link>
+        </p>
       </div>
     </div>
   );
@@ -88,6 +92,15 @@ const styles = {
     border: "none",
     borderRadius: "4px",
     cursor: "pointer",
+  },
+  loginText: {
+    marginTop: "1rem",
+    fontSize: "0.9rem",
+    color: "#333",
+  },
+  loginLink: {
+    color: "#007bff",
+    textDecoration: "none",
   },
 };
 
