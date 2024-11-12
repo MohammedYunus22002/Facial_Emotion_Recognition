@@ -47,14 +47,18 @@ function EmotionRecognition() {
       //console.log(face);
 
       // Websocket
+      const username = localStorage.getItem('username')
       var socket = new WebSocket('ws://localhost:8000')
       var imageSrc = webcamRef.current.getScreenshot()
       var apiCall = {
         event: "localhost:subscribe",
         data: { 
-          image: imageSrc
+          image: imageSrc,
+          username: username
         },
       };
+      console.log("Sending API call:", apiCall);
+
       socket.onopen = () => socket.send(JSON.stringify(apiCall))
       socket.onmessage = function(event) {
         var pred_log = JSON.parse(event.data)

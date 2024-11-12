@@ -13,6 +13,7 @@ function Login() {
     try {
       const response = await axios.post("http://localhost:8000/login", { username, password });
       localStorage.setItem("token", response.data.access_token);
+      localStorage.setItem("username", username)
       navigate("/");  // Use navigate instead of history.push
     } catch (error) {
       console.error("Login error:", error);

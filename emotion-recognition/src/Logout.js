@@ -7,6 +7,7 @@ function Logout() {
   const handleLogout = async () => {
     // Remove the token from localStorage
     localStorage.removeItem("token");
+    localStorage.removeItem("username");
     // Optionally, you can make a request to the backend to invalidate the session (if implemented)
     // await axios.post("http://localhost:8000/logout");
 
