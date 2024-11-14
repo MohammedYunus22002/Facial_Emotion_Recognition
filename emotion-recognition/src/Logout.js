@@ -26,7 +26,6 @@ const styles = {
   container: {
     display: "flex",
     justifyContent: "center",
-    marginTop: "20px",
   },
   button: {
     padding: "0.8rem",

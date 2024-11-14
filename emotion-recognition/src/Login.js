@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
+import "./Login.css";  // Import the CSS file here
 
 function Login() {
   const navigate = useNavigate();
@@ -13,8 +14,8 @@ function Login() {
     try {
       const response = await axios.post("http://localhost:8000/login", { username, password });
       localStorage.setItem("token", response.data.access_token);
-      localStorage.setItem("username", username)
-      navigate("/");  // Use navigate instead of history.push
+      localStorage.setItem("username", username);
+      navigate("/");  // Navigate to home page on successful login
     } catch (error) {
       console.error("Login error:", error);
       alert("Invalid username or password");
@@ -22,17 +23,17 @@ function Login() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h2 style={styles.title}>Login</h2>
-        <form onSubmit={handleLogin} style={styles.form}>
+    <div className="container">
+      <div className="card">
+        <h2 className="title">Login</h2>
+        <form onSubmit={handleLogin} className="form">
           <input
             type="text"
             placeholder="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
-            style={styles.input}
+            className="input"
           />
           <input
             type="password"
@@ -40,69 +41,16 @@ function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            style={styles.input}
+            className="input"
           />
-          <button type="submit" style={styles.button}>Login</button>
+          <button type="submit" className="button">Login</button>
         </form>
-        <p style={styles.signupText}>
-          Don’t have an account? <Link to="/signup" style={styles.signupLink}>Sign up</Link>
+        <p className="signupText">
+          Don’t have an account? <Link to="/signup" className="signupLink">Sign up</Link>
         </p>
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-    backgroundColor: "#f4f4f9",
-  },
-  card: {
-    width: "400px",
-    padding: "2rem",
-    borderRadius: "8px",
-    boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
-    backgroundColor: "#fff",
-    textAlign: "center",
-  },
-  title: {
-    marginBottom: "1rem",
-    fontSize: "1.8rem",
-    color: "#333",
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-  },
-  input: {
-    marginBottom: "1rem",
-    padding: "0.8rem",
-    fontSize: "1rem",
-    borderRadius: "4px",
-    border: "1px solid #ddd",
-  },
-  button: {
-    padding: "0.8rem",
-    fontSize: "1rem",
-    color: "#fff",
-    backgroundColor: "#007bff",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-  },
-  signupText: {
-    marginTop: "1rem",
-    fontSize: "0.9rem",
-    color: "#333",
-  },
-  signupLink: {
-    color: "#007bff",
-    textDecoration: "none",
-  },
-};
-
 
 export default Login;

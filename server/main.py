@@ -1,4 +1,3 @@
-
 import json
 import base64
 from typing import Optional
@@ -14,8 +13,6 @@ from fer import FER
 from dotenv import load_dotenv
 import os
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from fastapi import Request
 
 # Load environment variables
 load_dotenv()

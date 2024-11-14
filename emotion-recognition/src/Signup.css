@@ -1,0 +1,96 @@
+/* Background container styling */
+.signup-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: linear-gradient(135deg, #667eea, #764ba2); /* Gradient background */
+    font-family: Arial, sans-serif;
+    background-size: cover;
+    background-position: center;
+  }
+  
+  /* Signup card styling */
+  .signup-card {
+    width: 400px;
+    padding: 2rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.8); /* Frosted glass effect */
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    transition: transform 0.2s ease-in-out;
+    backdrop-filter: blur(10px); /* Applies the blur for frosted effect */
+  }
+  
+  .signup-card:hover {
+    transform: translateY(-5px);
+  }
+  
+  /* Title styling */
+  .signup-title {
+    margin-bottom: 1.5rem;
+    font-size: 2rem;
+    color: #333;
+    font-weight: bold;
+  }
+  
+  /* Form styling */
+  .signup-form {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* Input field styling */
+  .signup-input {
+    margin-bottom: 1.2rem;
+    padding: 0.9rem;
+    font-size: 1rem;
+    border-radius: 5px;
+    border: 1px solid #d1d5db;
+    background-color: #f9fafb;
+    transition: border-color 0.3s ease;
+  }
+  
+  .signup-input:focus {
+    border-color: #6366f1;
+    outline: none;
+    box-shadow: 0 0 5px rgba(99, 102, 241, 0.4);
+  }
+  
+  /* Button styling */
+  .signup-button {
+    padding: 0.9rem;
+    font-size: 1rem;
+    color: #fff;
+    background-color: #6366f1; /* Blue button */
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+  
+  .signup-button:hover {
+    background-color: #4f46e5; /* Darker blue on hover */
+  }
+  
+  .signup-button:active {
+    transform: scale(0.98);
+  }
+  
+  /* Login text styling */
+  .signup-loginText {
+    margin-top: 1.2rem;
+    font-size: 0.9rem;
+    color: #6b7280;
+  }
+  
+  /* Login link styling */
+  .signup-loginLink {
+    color: #6366f1;
+    text-decoration: none;
+    font-weight: bold;
+  }
+  
+  .signup-loginLink:hover {
+    text-decoration: underline;
+  }

@@ -1,0 +1,137 @@
+/* Main Container */
+.emotion-recognition {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #000; /* Set background to black */
+    min-height: 100vh;
+    position: relative;
+    color: #fff; /* Set text color to white for contrast */
+    overflow: hidden; /* Prevent scrolling */
+}
+
+/* Webcam and Canvas */
+.webcam, .canvas {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 480px; /* Reduced width */
+    height: 360px; /* Reduced height */
+    border: 2px solid #444; /* Add border to stand out on black */
+    border-radius: 8px;
+}
+
+/* Header */
+.header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 380px;  /* Adjusted for smaller webcam size */
+    color: #fff;
+}
+
+/* Logo */
+.logo {
+    width: 80px;  /* Reduced size of the logo */
+    height: 80px;  /* Reduced size of the logo */
+    margin-bottom: 10px;
+    filter: brightness(1.2); /* Slightly brighten the logo */
+}
+
+/* Emotion Container */
+.emotion-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px; /* Reduced padding */
+    border-radius: 8px;
+    background-color: #222; /* Dark background for emotion container */
+    box-shadow: 0 4px 8px rgba(255, 255, 255, 0.1);
+    margin-top: 15px;  /* Reduced margin */
+    width: 250px;  /* Slightly smaller container */
+}
+
+.emotion-bar {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px; /* Reduced margin */
+    color: #fff;
+}
+
+.emotion-label {
+    font-size: 0.9rem;  /* Reduced font size */
+    width: 70px;  /* Reduced label width */
+    text-align: right;
+    margin-right: 10px;
+}
+
+.progress-bar {
+    width: 150px; /* Reduced progress bar width */
+    height: 10px; /* Reduced height */
+    border-radius: 6px;
+    background-color: #555;
+    margin-right: 8px;  /* Reduced margin */
+    overflow: hidden;
+}
+
+progress[value]::-webkit-progress-bar {
+    background-color: #444;
+}
+
+progress[value]::-webkit-progress-value {
+    background-color: #00bcd4; /* Customize color for better visibility */
+}
+
+/* Emotion Text */
+.emotion-text {
+    font-size: 1.2rem;  /* Reduced font size */
+    text-align: center;
+    border: none;
+    background-color: transparent;
+    font-weight: bold;
+    color: #ff6f61; /* Bright color for emphasis */
+    margin-top: 15px; /* Reduced margin */
+    margin-bottom: 15px;
+}
+
+
+/* New container for the user button */
+.user-button-container {
+    margin-top: 20px;  /* Adds space between the emotion container and the user button */
+    text-align: center;
+  }
+  
+  .redirect-button {
+    background-color: #444;
+    color: #fff;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    cursor: pointer;
+    width: 100%;
+    max-width: 300px; /* Maximum width to avoid stretching */
+    margin: 0 auto 15px; /* Center-align the button */
+  }
+  
+  .redirect-button:hover {
+    background-color: #555;
+  }
+  
+  /* Adjust logout button position */
+  .logout-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    color: #bf4f4f;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    
+  }
+  
+  .logout-button:hover {
+    background-color: #555;
+  }

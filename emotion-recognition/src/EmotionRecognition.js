@@ -1,186 +1,116 @@
 import React, { useRef, useEffect } from "react";
-import "./App.css";
+import { useNavigate } from "react-router-dom";  // Import useNavigate
+import "./EmotionRecognition.css";
 import logo from './logo.svg';
-
 import * as tf from "@tensorflow/tfjs";
 import Webcam from "react-webcam";
 import { drawMesh } from "./utilities";
-import Logout from "./Logout"; 
+import Logout from "./Logout";
 
 function EmotionRecognition() {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
-  const blazeface = require('@tensorflow-models/blazeface')
+  const blazeface = require('@tensorflow-models/blazeface');
+  const navigate = useNavigate();  // Initialize navigate function
 
-  //  Load blazeface
   const runFaceDetectorModel = async () => {
-
-    const model = await blazeface.load()
-    console.log("FaceDetection Model is Loaded..") 
+    const model = await blazeface.load();
+    console.log("FaceDetection Model Loaded.");
     setInterval(() => {
       detect(model);
     }, 100);
- 
-  }
+  };
 
   const detect = async (net) => {
     if (
-      typeof webcamRef.current !== "undefined" &&
-      webcamRef.current !== null &&
+      webcamRef.current &&
       webcamRef.current.video.readyState === 4
     ) {
-      // Get Video Properties
       const video = webcamRef.current.video;
-      const videoWidth = webcamRef.current.video.videoWidth;
-      const videoHeight = webcamRef.current.video.videoHeight;
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
 
-      // Set video width
       webcamRef.current.video.width = videoWidth;
       webcamRef.current.video.height = videoHeight;
-
-      // Set canvas width
       canvasRef.current.width = videoWidth;
       canvasRef.current.height = videoHeight;
 
-      // Make Detections
       const face = await net.estimateFaces(video);
-      //console.log(face);
-
-      // Websocket
-      const username = localStorage.getItem('username')
-      var socket = new WebSocket('ws://localhost:8000')
-      var imageSrc = webcamRef.current.getScreenshot()
-      var apiCall = {
+      const socket = new WebSocket('ws://localhost:8000');
+      const imageSrc = webcamRef.current.getScreenshot();
+      const username = localStorage.getItem('username');
+      const apiCall = {
         event: "localhost:subscribe",
         data: { 
           image: imageSrc,
           username: username
         },
       };
-      console.log("Sending API call:", apiCall);
 
-      socket.onopen = () => socket.send(JSON.stringify(apiCall))
+      socket.onopen = () => socket.send(JSON.stringify(apiCall));
       socket.onmessage = function(event) {
-        var pred_log = JSON.parse(event.data)
-        document.getElementById("Angry").value = Math.round(pred_log['predictions']['angry']*100)
-        document.getElementById("Neutral").value = Math.round(pred_log['predictions']['neutral']*100)
-        document.getElementById("Happy").value = Math.round(pred_log['predictions']['happy']*100)
-        document.getElementById("Fear").value = Math.round(pred_log['predictions']['fear']*100)
-        document.getElementById("Surprise").value = Math.round(pred_log['predictions']['surprise']*100)
-        document.getElementById("Sad").value = Math.round(pred_log['predictions']['sad']*100)
-        document.getElementById("Disgust").value = Math.round(pred_log['predictions']['disgust']*100)
-
-        document.getElementById("emotion_text").value = pred_log['emotion']
-
-        // Get canvas context
+        const predLog = JSON.parse(event.data);
+        const emotions = ["Angry", "Neutral", "Happy", "Fear", "Surprise", "Sad", "Disgust"];
+        emotions.forEach(emotion => {
+          document.getElementById(emotion).value = Math.round(predLog['predictions'][emotion.toLowerCase()] * 100);
+        });
+        document.getElementById("emotion_text").value = predLog['emotion'];
+        
         const ctx = canvasRef.current.getContext("2d");
-        requestAnimationFrame(()=>{drawMesh(face, pred_log, ctx)});
-      }
+        requestAnimationFrame(() => drawMesh(face, predLog, ctx));
+      };
     }
   };
 
-  useEffect(()=>{runFaceDetectorModel()}, []);
-  return (
-    <div className="App">
-      <Webcam
-          ref={webcamRef}
-          style={{
-            position: "absolute",
-            marginLeft: "auto",
-            marginRight: "auto",
-            left: 0,
-            right: 600,
-            top:20,
-            textAlign: "center",
-            zindex: 9,
-            width: 640,
-            height: 480,
-          }}
-        />
+  useEffect(() => {
+    runFaceDetectorModel();
+  }, []);
 
-        <canvas
-          ref={canvasRef}
-          style={{
-            position: "absolute",
-            marginLeft: "auto",
-            marginRight: "auto",
-            left: 0,
-            right: 600,
-            top:20,
-            textAlign: "center",
-            zindex: 9,
-            width: 640,
-            height: 480,
-          }}
-        />
-      <header className="App-header">
-        <img src={logo} 
-        className="App-logo" 
-        alt="logo"
-        style={{
-          position: "absolute",
-          marginLeft: "auto",
-          marginRight: "auto",
-          bottom:10,
-          left: 0,
-          right: 0,
-          width: 150,
-          height: 150,
-        }}
-        />   
-        <div className="Prediction" style={{
-          position:"absolute",
-          right:100,
-          width:500,
-          top: 60
-        }}>
-          <label forhtml="Angry" style={{color:'red'}}>Angry </label>
-          <progress id="Angry" value="0" max = "100" >10%</progress>
-          <br></br>
-          <br></br>
-          <label forhtml="Neutral" style={{color:'lightgreen'}}>Neutral </label>
-          <progress id="Neutral" value="0" max = "100">10%</progress>
-          <br></br>
-          <br></br>
-          <label forhtml="Happy" style={{color:'orange'}}>Happy </label>
-          <progress id="Happy" value="0" max = "100" >10%</progress>
-          <br></br>
-          <br></br>
-          <label forhtml="Fear" style={{color:'lightblue'}}>Fear </label>
-          <progress id="Fear" value="0" max = "100" >10%</progress>
-          <br></br>
-          <br></br>
-          <label forhtml="Surprise" style={{color:'yellow'}}>Surprised </label>
-          <progress id="Surprise" value="0" max = "100" >10%</progress>
-          <br></br>
-          <br></br>
-          <label forhtml="Sad" style={{color:'gray'}} >Sad </label>
-          <progress id="Sad" value="0" max = "100" >10%</progress>
-          <br></br>
-          <br></br>
-          <label forhtml="Disgust" style={{color:'pink'}} >Disgusted </label>
-          <progress id="Disgust" value="0" max = "100" >10%</progress>
+  const navigateToUserPage = () => {
+    navigate('/user');  // Navigate to the user page
+  };
+
+  return (
+    <div className="emotion-recognition">
+      <Webcam ref={webcamRef} className="webcam" />
+      <canvas ref={canvasRef} className="canvas" />
+
+      <header className="header">
+        <img src={logo} className="logo" alt="logo" />
+        <div className="emotion-container">
+          {["Angry", "Neutral", "Happy", "Fear", "Surprise", "Sad", "Disgust"].map((emotion) => (
+            <div className="emotion-bar" key={emotion}>
+              <label htmlFor={emotion} className="emotion-label" style={{ color: getEmotionColor(emotion) }}>
+                {emotion}
+              </label>
+              <progress id={emotion} value="0" max="100" className="progress-bar" />
+            </div>
+          ))}
         </div>
-        <input id="emotion_text" name="emotion_text" vale="Neutral"
-               style={{
-                 position:"absolute",
-                 width:200,
-                 height:50,
-                 bottom:60,
-                 left:300,
-                 "font-size": "30px",
-               }}></input>
-          <div style={{
-            position: "absolute",
-            top: "1px",
-            right: "20px",
-            zIndex: 10,
-          }}>
-            <Logout /> 
-          </div>
+        <input id="emotion_text" className="emotion-text" readOnly />
+        <div className="logout-button">
+          <Logout />
+        </div>
+        {/* Add the new button for navigation */}
+        <button onClick={navigateToUserPage} className="redirect-button">
+          Go to User Page
+        </button>
       </header>
     </div>
   );
+}
+
+function getEmotionColor(emotion) {
+  const colors = {
+    Angry: "red",
+    Neutral: "lightgreen",
+    Happy: "orange",
+    Fear: "lightblue",
+    Surprise: "yellow",
+    Sad: "gray",
+    Disgust: "pink",
+  };
+  return colors[emotion];
 }
 
 export default EmotionRecognition;
