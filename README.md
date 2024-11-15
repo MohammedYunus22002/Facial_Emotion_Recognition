@@ -10,10 +10,6 @@ Below is a demo video of the application that I have built.
 
 ![Demo GIF](./Resources/emotion-recognition.gif)
 
-High quality youtube video available at - https://youtu.be/aTe05n6T5Vo
-
-[![demo video](./Resources/HLD.png)](https://youtu.be/aTe05n6T5Vo)
-
 # Technologies used
 1. ReactJS.<img align="left" alt="react" width="26px" src="./Resources/react.png" /><br>
     - Building the front-end UI.
