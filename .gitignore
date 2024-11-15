@@ -2,3 +2,5 @@ emotion-recognition/node_modules
 server/env
 server/.env
 server/__pycache__
+.DS_Store
+Resources/.DS_Store
