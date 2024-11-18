@@ -1,7 +1,8 @@
 import json
 import base64
+import pytz  
 from typing import Optional
-from fastapi import FastAPI, WebSocket, Depends, HTTPException, status
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
 from pydantic import BaseModel
 from passlib.context import CryptContext
 from jose import JWTError, jwt
@@ -9,26 +10,54 @@ from datetime import datetime, timedelta
 import motor.motor_asyncio  
 import cv2
 import numpy as np
-from fer import FER
 from dotenv import load_dotenv
 import os
 from fastapi.middleware.cors import CORSMiddleware
+import tensorflow as tf
+import asyncio
 
 # Load environment variables
 load_dotenv()
 
 # App setup
 app = FastAPI()
-detector = FER()
+
+# TensorFlow model setup
+model_path = r'./best_model.h5'
+model = tf.keras.models.load_model(model_path)
+
+# Emotion list and color mapping
+emotions = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
+emotion_colors = {
+    'Angry': '#FF0000',
+    'Disgust': '#00FF00',
+    'Fear': '#0000FF',
+    'Happy': '#FFFF00',
+    'Sad': '#000080',
+    'Surprise': '#FFA500',
+    'Neutral': '#808080'
+}
+
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
+# Custom CORS middleware for selective route control
+class SelectiveCORSMiddleware(CORSMiddleware):
+    async def dispatch(self, request, call_next):
+        if "/users/" in request.url.path or "/EmotionRecognition" in request.url.path:
+            response = await call_next(request)
+            response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"  # Your frontend URL
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            return response
+        else:
+            return await super().dispatch(request, call_next)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=["http://localhost:3000"],  
+    allow_credentials=True, 
+    allow_methods=["*"],  
     allow_headers=["*"],
 )
 
@@ -38,7 +67,6 @@ client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URL)
 db = client["emotion_app"]
 users_collection = db["users"]
 emotions_collection = db["emotions"]
-
 
 # CryptContext for password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -50,7 +78,6 @@ class User(BaseModel):
     emotion: Optional[str] = None  
     emotion_timestamp: Optional[datetime] = None
 
-
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -59,10 +86,12 @@ class Emotion(BaseModel):
     username: str
     emotion: str
     timestamp: datetime
+
 # Utility functions
 def user_to_model(user_data):
-    user_data["id"] = str(user_data["_id"])  # Convert _id to id string
+    user_data["id"] = str(user_data["_id"])
     return User(**user_data)
+
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
@@ -71,10 +100,11 @@ def get_password_hash(password):
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
+    local_timezone = pytz.timezone("Asia/Kolkata")
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(local_timezone) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.now(local_timezone) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -84,7 +114,6 @@ async def authenticate_user(username: str, password: str):
     if user is None or not verify_password(password, user["password"]):
         return False
     return user
-
 
 # Signup endpoint
 @app.post("/signup")
@@ -113,69 +142,75 @@ async def login(user: User):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-# Emotion detection with WebSocket
 @app.websocket("/")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    last_store_time = datetime.utcnow()  # Initialize the last store timestamp
-    try:
-        # Authenticate user with token
-        while True:
-            # Continue with emotion detection
-            payload = await websocket.receive_text()
-            payload = json.loads(payload)
-            imageByt64 = payload['data']['image'].split(',')[1]
-            # decode and convert into image
-            image = np.fromstring(base64.b64decode(imageByt64), np.uint8)
-            image = cv2.imdecode(image, cv2.IMREAD_COLOR)
-
-            # Extract the token from the already parsed payload
-            username = payload.get("data", {}).get("username", "").strip()
-
-            # Detect Emotion via Tensorflow model
-            prediction = detector.detect_emotions(image)
-
-            # Get dominant emotion
-            current_emotion = max(prediction[0]['emotions'], key=prediction[0]['emotions'].get)
-            current_time = datetime.utcnow()
-            if (current_time - last_store_time).seconds >= 3:
-                # Fetch the user document from the users collection using the username
-                user = await users_collection.find_one({"username": {"$regex": f"^{username}$", "$options": "i"}})
-
-                print(f"Users fetched from database: {user}")
-                if user:
-                    try:
-                        updated_user = await users_collection.update_one(
-                            {"username": username},
-                            {
-                                "$set": {
-                                    "emotion": current_emotion,
-                                    "emotion_timestamp": current_time
-                                }
-                            }
-                        )
-                        if updated_user.modified_count == 0:
-                            print(f"No update for {username}, maybe no change in emotion.")
-                        else:
-                            print(f"Emotion for {username} updated successfully.")
-                    except Exception as e:
-                        print(f"Error updating emotion for {username}: {e}")
-
-
-                    last_store_time = current_time
-
-                
-            response = {
-                "predictions": prediction[0]['emotions'],
-                "emotion": max(prediction[0]['emotions'], key=prediction[0]['emotions'].get)
-            }
-            await websocket.send_json(response)
-            await websocket.close()
+    local_timezone = pytz.timezone("Asia/Kolkata")
+    last_store_time = datetime.now(local_timezone)
+    print("WebSocket connection established.")
     
+    try:
+        while True:
+            try:
+                payload = await asyncio.wait_for(websocket.receive_text(), timeout=30)
+                payload = json.loads(payload)
+                imageByt64 = payload['data']['image'].split(',')[1]
+                image = np.frombuffer(base64.b64decode(imageByt64), np.uint8)
+                image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+
+                username = payload.get("data", {}).get("username", "").strip()
+
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+                faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+
+                for (x, y, w, h) in faces:
+                    roi_gray = gray[y:y+h, x:x+w]
+                    roi_gray = cv2.resize(roi_gray, (48, 48))
+                    roi = roi_gray.astype('float') / 255.0
+                    roi = np.expand_dims(roi, axis=0)
+                    roi = np.expand_dims(roi, axis=-1)
+                    prediction = model.predict(roi, verbose=0)[0]
+                    current_emotion = emotions[prediction.argmax()]
+
+                    print(f"Detected emotion: {current_emotion}")
+
+                    current_time = datetime.now(local_timezone)
+                    if username:
+                        user = await users_collection.find_one({"username": username})
+                        if user:
+                            await users_collection.update_one(
+                                {"username": username},
+                                {
+                                    "$set": {
+                                        "emotion": current_emotion,
+                                        "emotion_timestamp": current_time
+                                    }
+                                }
+                            )
+                            last_store_time = current_time
+
+                    emotion_color = emotion_colors.get(current_emotion, '#FFFFFF')
+
+                    response = {
+                        "predictions": prediction.tolist(),
+                        "emotion": current_emotion,
+                        "color": emotion_color
+                    }
+
+                    await websocket.send_json(response)
+
+            except asyncio.TimeoutError:
+                print("No data received for 30 seconds. Sending ping to keep connection alive.")
+                await websocket.send_json({"message": "ping"})
+
+    except WebSocketDisconnect:
+        print("WebSocket connection closed.")
     except Exception as e:
         print(f"Error in WebSocket connection: {e}")
     finally:
         await websocket.close()
+        print("WebSocket connection closed gracefully.")
 
 # Dependency to get current user
 async def get_current_user(token: str = Depends()):
@@ -200,35 +235,27 @@ async def get_current_user(token: str = Depends()):
 @app.get("/users/{username}")
 async def get_user(username: str):
     user = await users_collection.find_one({"username": {"$regex": f"^{username}$", "$options": "i"}})
-    
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
-    # Return the user data including the optional fields
     user_data = {
         "username": user["username"],
-        "emotion": user.get("emotion"),  # Optional field
-        "emotion_timestamp": user.get("emotion_timestamp")  # Optional field
+        "emotion": user.get("emotion"),
+        "emotion_timestamp": user.get("emotion_timestamp")
     }
     return {"user": user_data}
 
-
 @app.get("/users")
 async def get_users():
-    # Query to get all users from the users collection
     users_cursor = users_collection.find()
-    
-    # Convert the cursor into a list of user data
     users_list = []
     async for user in users_cursor:
-        # Only include necessary fields (avoid sending passwords)
         user_data = {
             "username": user["username"],
-            # You can add more fields as needed, e.g., "emotion", "last_updated" etc.
+            "emotion": user.get("emotion"),
+            "emotion_timestamp": user.get("emotion_timestamp")
         }
         users_list.append(user_data)
-
     return {"users": users_list}
